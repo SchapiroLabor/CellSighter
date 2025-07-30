@@ -76,6 +76,6 @@ if __name__ == "__main__":
     metrics = Metrics(
         [],
         writer,
-        prefix="val")
+        prefix="test")
     metrics(cells, results, 0)
     metrics.save_results(os.path.join(args.base_path, f"test_results.csv"), cells, results)
