@@ -24,7 +24,7 @@ def split_train_val(train_images, val_fraction=0.15):
             val = [actual_train.pop()]  # Move one from train to val
         return actual_train, val
 
-def process_dataset(image_seg_pairs, root_path, quant_path, transposing, crop_input_size, crop_size, kfolds, lr, to_pad, blacklist, marker_path, sample_batch, aug, num_workers, size_data, batch_size, swap_train_val, val_size):
+def process_dataset(image_seg_pairs, root_path, quant_path, transposing, crop_input_size, crop_size, kfolds, lr, to_pad, blacklist, marker_path, sample_batch, aug, num_workers, size_data, batch_size, swap_train_val, val_size, max_epochs):
     df = pd.read_csv(quant_path)
     label_encoder = LabelEncoder()
     df['cell_type'] = label_encoder.fit_transform(df['cell_type'])
@@ -37,6 +37,7 @@ def process_dataset(image_seg_pairs, root_path, quant_path, transposing, crop_in
     os.makedirs(os.path.join(root_path, 'CellTypes/cells'), exist_ok=True)
     os.makedirs(os.path.join(root_path, 'CellTypes/cells2labels'), exist_ok=True)
     os.makedirs(os.path.join(root_path, 'CellTypes/mappings'), exist_ok=True)
+    os.makedirs(os.path.join(root_path, 'weights'), exist_ok=True)
 
     with open(os.path.join(root_path, 'label_mapping.json'), 'w') as f:
         json.dump(label_mapping, f)
@@ -61,7 +62,6 @@ def process_dataset(image_seg_pairs, root_path, quant_path, transposing, crop_in
             img, seg, sample_id = pair
             img_name = os.path.splitext(os.path.basename(img))[0]
             if sample_id not in unique_samples:
-                print(f"Provided sample_id {sample_id} not in quantification CSV. Skipping.")
                 raise ValueError(f"Provided sample_id {sample_id} not in quantification CSV.")
         sample_to_img[sample_id] = img_name
 
@@ -135,7 +135,7 @@ def process_dataset(image_seg_pairs, root_path, quant_path, transposing, crop_in
             "val_set": val_images,
             "test_set": test_images,
             "num_classes": len(label_mapping),
-            "epoch_max": 100,
+            "epoch_max": max_epochs,
             "lr": lr,
             "blacklist": blacklist_cleaned,
             "num_workers": num_workers,
@@ -237,8 +237,8 @@ def main():
     parser.add_argument(
         "--num_workers",
         type=int,
-        default=4,
-        help="Number of workers for data loading. Default is 4."
+        default=2,
+        help="Number of workers for data loading. Default is 2."
     )
     parser.add_argument(
         "--size_data",
@@ -249,8 +249,8 @@ def main():
     parser.add_argument(
         "--batch_size",
         type=int,
-        default=32,
-        help="Batch size for training. Default is 32."
+        default=128,
+        help="Batch size for training. Default is 128."
     )
     parser.add_argument(
         "--swap_train_val",
@@ -262,6 +262,12 @@ def main():
         type=float,
         default=0.15,
         help="Proportion of the training set to be used as validation set. Default is 0.15."
+    )
+    parser.add_argument(
+        "max_epochs",
+        type=int,
+        default=50,
+        help="Maximum number of epochs for training. Default is 50."
     )
     args = parser.parse_args()
 
@@ -305,7 +311,8 @@ def main():
         size_data=args.size_data,
         batch_size=args.batch_size,
         swap_train_val=args.swap_train_val,
-        val_size=args.val_size
+        val_size=args.val_size,
+        max_epochs=args.max_epochs
     )
 
 if __name__ == "__main__":

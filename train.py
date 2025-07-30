@@ -76,10 +76,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Arguments')
     parser.add_argument('--base_path', type=str,
                         help='configuration_path')
+    parser.add_argument('--fold', type=str, default="fold_0",
+                        help='fold to evaluate')
     args = parser.parse_args()
 
     writer = SummaryWriter(log_dir=args.base_path)
-    config_path = os.path.join(args.base_path, "config.json")
+    config_path = os.path.join(args.base_path, f"config_{args.fold}.json")
     with open(config_path) as f:
         config = json.load(f)
     criterion = torch.nn.CrossEntropyLoss()
@@ -132,7 +134,7 @@ if __name__ == "__main__":
                               writer,
                               prefix="val")
             metrics(cells_val, results_val, i)
-            metrics.save_results(os.path.join(args.base_path, f"val_results_{i}.csv"), cells_val, results_val)
+            metrics.save_results(os.path.join(args.base_path, f"val_results_{i}_{args.fold}.csv"), cells_val, results_val)
             #  TODO uncooment to eval on the train as well
             # cells_train, results_train = val_epoch(model, train_loader_for_eval, device=device)
             #  metrics = Metrics(
