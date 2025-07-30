@@ -264,7 +264,7 @@ def main():
         help="Proportion of the training set to be used as validation set. Default is 0.15."
     )
     parser.add_argument(
-        "max_epochs",
+        "--max_epochs",
         type=int,
         default=50,
         help="Maximum number of epochs for training. Default is 50."
