@@ -41,11 +41,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Arguments')
     parser.add_argument('--base_path', type=str,
                         help='configuration_path')
+    parser.add_argument('--fold', type=str, default="fold_0",
+                        help='fold to evaluate')
 
     args = parser.parse_args()
     writer = SummaryWriter(log_dir=args.base_path)
 
-    config_path = os.path.join(args.base_path, "config.json")
+    config_path = os.path.join(args.base_path, f"config_{args.fold}.json")
     with open(config_path) as f:
         config = json.load(f)
 
