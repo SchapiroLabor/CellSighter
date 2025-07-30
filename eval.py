@@ -53,7 +53,7 @@ if __name__ == "__main__":
                             config["channels_path"],
                             config["crop_size"],
                             config["train_set"],
-                            config["val_set"],
+                            config["test_set"],
                             config["to_pad"],
                             blacklist_channels=config["blacklist"])
     crop_input_size = config["crop_input_size"] if "crop_input_size" in config else 100
@@ -76,4 +76,4 @@ if __name__ == "__main__":
         writer,
         prefix="val")
     metrics(cells, results, 0)
-    metrics.save_results(os.path.join(args.base_path, f"val_results.csv"), cells, results)
+    metrics.save_results(os.path.join(args.base_path, f"test_results.csv"), cells, results)

@@ -5,22 +5,38 @@ import tifffile as tiff
 from sklearn.preprocessing import LabelEncoder
 import json
 import argparse
-from sklearn.model_selection import StratifiedGroupKFold 
+from sklearn.model_selection import StratifiedGroupKFold, train_test_split
 
+def split_train_val(train_images, val_fraction=0.15):
+    """Split train_images into train and val sets, ensuring at least 1 val image."""
+    n_train = len(train_images)
+    if n_train == 0:
+        raise ValueError("No training images available.")
+    if n_train == 1:
+        return train_images, train_images  # Use same image for val (crops will differ)
+    elif n_train == 2:
+        return [train_images[0]], [train_images[1]]  # 1 for train, 1 for val
+    else:
 
+        actual_train, val = train_test_split(train_images, test_size=val_fraction, random_state=42)
 
-def process_dataset(image_seg_pairs, root_path, quant_path, transposing, crop_input_size, crop_size, kfolds, lr, to_pad, blacklist, marker_path, sample_batch, aug, num_workers, size_data, batch_size, swap_train_val):
+        if len(val) == 0:
+            val = [actual_train.pop()]  # Move one from train to val
+        return actual_train, val
+
+def process_dataset(image_seg_pairs, root_path, quant_path, transposing, crop_input_size, crop_size, kfolds, lr, to_pad, blacklist, marker_path, sample_batch, aug, num_workers, size_data, batch_size, swap_train_val, val_size):
     df = pd.read_csv(quant_path)
     label_encoder = LabelEncoder()
     df['cell_type'] = label_encoder.fit_transform(df['cell_type'])
     label_mapping = {label: encoded for encoded, label in enumerate(label_encoder.classes_)}
     hierarchy_match = {str(encoded): label for label, encoded in label_mapping.items()}
 
-    if not os.path.exists(root_path):
-        os.makedirs(os.path.join(root_path, 'CellTypes/data/images'), exist_ok=True)
-        os.makedirs(os.path.join(root_path, 'CellTypes/cells'), exist_ok=True)
-        os.makedirs(os.path.join(root_path, 'CellTypes/cells2labels'), exist_ok=True)
-        os.makedirs(os.path.join(root_path, 'CellTypes/mappings'), exist_ok=True)
+
+    os.makedirs(root_path, exist_ok=True)
+    os.makedirs(os.path.join(root_path, 'CellTypes/data/images'), exist_ok=True)
+    os.makedirs(os.path.join(root_path, 'CellTypes/cells'), exist_ok=True)
+    os.makedirs(os.path.join(root_path, 'CellTypes/cells2labels'), exist_ok=True)
+    os.makedirs(os.path.join(root_path, 'CellTypes/mappings'), exist_ok=True)
 
     with open(os.path.join(root_path, 'label_mapping.json'), 'w') as f:
         json.dump(label_mapping, f)
@@ -52,10 +68,10 @@ def process_dataset(image_seg_pairs, root_path, quant_path, transposing, crop_in
         image = tiff.imread(img)
         if transposing:
             image = np.transpose(image, (1, 2, 0))
-        tiff.imwrite(os.path.join(root_path, 'CellTypes/data/images', img_name), image)
+        tiff.imwrite(os.path.join(root_path, 'CellTypes/data/images', f'{img_name}.tiff'), image)
 
         segmask = tiff.imread(seg)
-        tiff.imwrite(os.path.join(root_path, 'CellTypes/cells', img_name), segmask)
+        tiff.imwrite(os.path.join(root_path, 'CellTypes/cells', f'{img_name}.tiff'), segmask)
         df2 = df[df['sample_id'] == sample_id].copy()
         df2 = df2[['cell_id', 'cell_type']]
         max_ids = segmask.max()
@@ -64,13 +80,13 @@ def process_dataset(image_seg_pairs, root_path, quant_path, transposing, crop_in
             cell_id = int(row['cell_id'])
             if 1 <= cell_id <= max_ids: 
                 labels_array[cell_id - 1] = row['cell_type']
-        np.savez(os.path.join(root_path, 'CellTypes/cells2labels', f'{img_name}.npz'), labels=labels_array)
+        np.savez(os.path.join(root_path, 'CellTypes/cells2labels', f'{img_name}.npz'), data=labels_array)
         all_cell_ids = pd.DataFrame({'cell_id': range(1, max_ids + 1)})
         full_mapping = all_cell_ids.merge(df2, on='cell_id', how='left')
         full_mapping['cell_type'] = full_mapping['cell_type'].fillna(-1)
         full_mapping['is_filled'] = full_mapping['cell_type'] == -1
         full_mapping.to_csv(os.path.join(root_path, 'CellTypes/mappings', f'mapping_{img_name}.csv'), index=False)
-        
+
     # Now we need to filter the DataFrame to only include processed samples
     processed_samples = list(sample_to_img.keys())
     df = df[df['sample_id'].isin(processed_samples)]
@@ -86,26 +102,30 @@ def process_dataset(image_seg_pairs, root_path, quant_path, transposing, crop_in
     groups = df['sample_id'].values
     X = np.ones((len(y), 1))
     skf = StratifiedGroupKFold(n_splits=kfolds, shuffle=True, random_state=42)
-    for fold_idx, (train_idx, val_idx) in enumerate(skf.split(X, y, groups)):
+    for fold_idx, (train_idx, test_idx) in enumerate(skf.split(X, y, groups)):
         if swap_train_val:
-            train_sample_ids = np.unique(groups[val_idx])
-            val_sample_ids = np.unique(groups[train_idx])
+            train_sample_ids = np.unique(groups[test_idx])
+            test_sample_ids = np.unique(groups[train_idx])
         else:
-            val_sample_ids = np.unique(groups[val_idx])
+            test_sample_ids = np.unique(groups[test_idx])
             train_sample_ids = np.unique(groups[train_idx])
 
-        train_images = []
+        pre_train_images = []
         for s in train_sample_ids:
             if s in sample_to_img:
-                train_images.append(sample_to_img[s])
+                pre_train_images.append(sample_to_img[s])
             else:
                 raise ValueError(f"Sample ID {s} not found in the dataset.")
-        val_images = []
-        for s in val_sample_ids:
+        # Now we need to split  images away for validation. If training images are 1 image, we take the same image for validation, as we are using crops from images. 
+
+        test_images = []
+        for s in test_sample_ids:
             if s in sample_to_img:
-                val_images.append(sample_to_img[s])
+                test_images.append(sample_to_img[s])
             else:
                 raise ValueError(f"Sample ID {s} not found in the dataset.")
+
+        train_images, val_images = split_train_val(pre_train_images, val_size)
 
         config = {
             "crop_input_size": crop_input_size,
@@ -113,6 +133,7 @@ def process_dataset(image_seg_pairs, root_path, quant_path, transposing, crop_in
             "root_dir": root_path,
             "train_set": train_images,
             "val_set": val_images,
+            "test_set": test_images,
             "num_classes": len(label_mapping),
             "epoch_max": 100,
             "lr": lr,
@@ -236,6 +257,12 @@ def main():
         action='store_true',
         help="Whether to swap the training and validation sets."
     )
+    parser.add_argument(
+        "--val_size",
+        type=float,
+        default=0.15,
+        help="Proportion of the training set to be used as validation set. Default is 0.15."
+    )
     args = parser.parse_args()
 
     image_seg_pairs = []
@@ -277,7 +304,8 @@ def main():
         num_workers=args.num_workers,
         size_data=args.size_data,
         batch_size=args.batch_size,
-        swap_train_val=args.swap_train_val
+        swap_train_val=args.swap_train_val,
+        val_size=args.val_size
     )
 
 if __name__ == "__main__":
