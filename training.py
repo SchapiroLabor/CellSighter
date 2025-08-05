@@ -138,6 +138,7 @@ if __name__ == "__main__":
     val_dataset = CellCropsDataset(val_crops, transform=val_transform(crop_input_size), mask=True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
     num_channels = sum(1 for line in open(config["channels_path"])) + 1 - len(config["blacklist"])
     class_num = config["num_classes"]
 
