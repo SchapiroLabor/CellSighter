@@ -29,7 +29,7 @@ def process_dataset(image_seg_pairs, root_path, quant_path, transposing, crop_in
     label_encoder = LabelEncoder()
     df['cell_type'] = label_encoder.fit_transform(df['cell_type'])
     label_mapping = {label: encoded for encoded, label in enumerate(label_encoder.classes_)}
-    if hierarchy_match
+    if hierarchy_match:
         hierarchy_match = {str(encoded): label for label, encoded in label_mapping.items()}
     else:
         hierarchy_match = None
