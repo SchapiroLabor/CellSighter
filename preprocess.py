@@ -29,7 +29,10 @@ def process_dataset(image_seg_pairs, root_path, quant_path, transposing, crop_in
     label_encoder = LabelEncoder()
     df['cell_type'] = label_encoder.fit_transform(df['cell_type'])
     label_mapping = {label: encoded for encoded, label in enumerate(label_encoder.classes_)}
-    hierarchy_match = {str(encoded): label for label, encoded in label_mapping.items()}
+    if hierarchy_match
+        hierarchy_match = {str(encoded): label for label, encoded in label_mapping.items()}
+    else:
+        hierarchy_match = None
 
 
     os.makedirs(root_path, exist_ok=True)
@@ -278,6 +281,11 @@ def main():
         "--split_test",
         action='store_true',
         help="Whether to split the test set into 2 parts and thereby produce 2 config files each carrying only one of the parts for memory reasons."
+    )
+    parser.add_argument(
+        "--hierarchy_match",
+        action='store_true',
+        help="Whether to match the hierarchy of the dataset."
     )
     args = parser.parse_args()
 
