@@ -24,12 +24,15 @@ def split_train_val(train_images, val_fraction=0.15):
             val = [actual_train.pop()]  # Move one from train to val
         return actual_train, val
 
-def process_dataset(image_seg_pairs, root_path, quant_path, transposing, crop_input_size, crop_size, kfolds, lr, to_pad, blacklist, marker_path, sample_batch, aug, num_workers, size_data, batch_size, swap_train_val, val_size, max_epochs):
+def process_dataset(image_seg_pairs, root_path, quant_path, transposing, crop_input_size, crop_size, kfolds, lr, to_pad, blacklist, marker_path, sample_batch, aug, num_workers, size_data, batch_size, swap_train_val, val_size, max_epochs, split_test):
     df = pd.read_csv(quant_path)
     label_encoder = LabelEncoder()
     df['cell_type'] = label_encoder.fit_transform(df['cell_type'])
     label_mapping = {label: encoded for encoded, label in enumerate(label_encoder.classes_)}
-    hierarchy_match = {str(encoded): label for label, encoded in label_mapping.items()}
+    if hierarchy_match:
+        hierarchy_match = {str(encoded): label for label, encoded in label_mapping.items()}
+    else:
+        hierarchy_match = None
 
 
     os.makedirs(root_path, exist_ok=True)
@@ -71,27 +74,21 @@ def process_dataset(image_seg_pairs, root_path, quant_path, transposing, crop_in
         tiff.imwrite(os.path.join(root_path, 'CellTypes/data/images', f'{img_name}.tiff'), image)
 
         segmask = tiff.imread(seg)
+        tiff.imwrite(os.path.join(root_path, 'CellTypes/cells', f'{img_name}.tiff'), segmask)
         df2 = df[df['sample_id'] == sample_id].copy()
-        
-        # Get the maximum cell ID from the segmentation mask
+        df2 = df2[['cell_id', 'cell_type']]
         max_ids = segmask.max()
-        if max_ids == 0:
-            print(f"Warning: No cells found in segmentation mask for {img_name}. Skipping label file creation.")
-            continue
-            
-        # Create a full list of cell IDs from 1 to the max ID
-        full_ids = list(range(1, max_ids + 1))
-        
-        # Reindex the dataframe to include all possible cell IDs, filling missing ones
-        group = df2.set_index("cell_id").reindex(full_ids, fill_value=np.nan).reset_index()
-        
-        # Fill any missing labels with -1
-        group["cell_type"] = group["cell_type"].fillna(-1).astype(int)
-        
-        # Save the labels to a .txt file, without index or header
-        labels_path = os.path.join(root_path, 'CellTypes/cells2labels', f'{img_name}.txt')
-        group["cell_type"].to_csv(labels_path, index=False, header=False)
-        
+        labels_array = np.full(max_ids + 1, -1, dtype=int)
+        for _, row in df2.iterrows():
+            cell_id = int(row['cell_id'])
+            if 1 <= cell_id <= max_ids: 
+                labels_array[cell_id - 1] = row['cell_type']
+        np.savez(os.path.join(root_path, 'CellTypes/cells2labels', f'{img_name}.npz'), data=labels_array)
+        all_cell_ids = pd.DataFrame({'cell_id': range(1, max_ids + 1)})
+        full_mapping = all_cell_ids.merge(df2, on='cell_id', how='left')
+        full_mapping['cell_type'] = full_mapping['cell_type'].fillna(-1)
+        full_mapping['is_filled'] = full_mapping['cell_type'] == -1
+        full_mapping.to_csv(os.path.join(root_path, 'CellTypes/mappings', f'mapping_{img_name}.csv'), index=False)
 
     # Now we need to filter the DataFrame to only include processed samples
     processed_samples = list(sample_to_img.keys())
@@ -154,6 +151,11 @@ def process_dataset(image_seg_pairs, root_path, quant_path, transposing, crop_in
             "size_data": size_data,
             "batch_size": batch_size
         }
+        if split_test:
+            # Split the test set into two parts for memory reasons
+            test_images_part1, test_images_part2 = train_test_split(test_images, test_size=0.5, random_state=42)
+            config['test_set'] = test_images_part1
+            config['test_set_part2'] = test_images_part2
         config_path = os.path.join(root_path, f'config_fold_{fold_idx}.json')
         with open(config_path, 'w') as f:
             json.dump(config, f, indent=4)
@@ -275,6 +277,16 @@ def main():
         default=50,
         help="Maximum number of epochs for training. Default is 50."
     )
+    parser.add_argument(
+        "--split_test",
+        action='store_true',
+        help="Whether to split the test set into 2 parts and thereby produce 2 config files each carrying only one of the parts for memory reasons."
+    )
+    parser.add_argument(
+        "--hierarchy_match",
+        action='store_true',
+        help="Whether to match the hierarchy of the dataset."
+    )
     args = parser.parse_args()
 
     image_seg_pairs = []
@@ -318,7 +330,8 @@ def main():
         batch_size=args.batch_size,
         swap_train_val=args.swap_train_val,
         val_size=args.val_size,
-        max_epochs=args.max_epochs
+        max_epochs=args.max_epochs,
+        split_test=args.split_test
     )
 
 if __name__ == "__main__":

@@ -24,7 +24,7 @@ def split_train_val(train_images, val_fraction=0.15):
             val = [actual_train.pop()]  # Move one from train to val
         return actual_train, val
 
-def process_dataset(image_seg_pairs, root_path, quant_path, transposing, crop_input_size, crop_size, kfolds, lr, to_pad, blacklist, marker_path, sample_batch, aug, num_workers, size_data, batch_size, swap_train_val, val_size, max_epochs, split_test):
+def process_dataset(image_seg_pairs, root_path, quant_path, transposing, crop_input_size, crop_size, kfolds, lr, to_pad, blacklist, marker_path, sample_batch, aug, num_workers, size_data, batch_size, swap_train_val, val_size, max_epochs, split_test, hierarchy_match):
     df = pd.read_csv(quant_path)
     label_encoder = LabelEncoder()
     df['cell_type'] = label_encoder.fit_transform(df['cell_type'])
@@ -331,7 +331,8 @@ def main():
         swap_train_val=args.swap_train_val,
         val_size=args.val_size,
         max_epochs=args.max_epochs,
-        split_test=args.split_test
+        split_test=args.split_test,
+        hierarchy_match=args.hierarchy_match
     )
 
 if __name__ == "__main__":
