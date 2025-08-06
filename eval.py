@@ -43,6 +43,8 @@ if __name__ == "__main__":
                         help='configuration_path')
     parser.add_argument('--fold', type=str, default="fold_0",
                         help='fold to evaluate')
+    parser.add_argument('--test_set', type=str, default="test_set",
+                        help='test set from the config file')
 
     args = parser.parse_args()
     writer = SummaryWriter(log_dir=args.base_path)
@@ -55,7 +57,7 @@ if __name__ == "__main__":
                             config["channels_path"],
                             config["crop_size"],
                             config["train_set"],
-                            config["test_set"],
+                            config[args.test_set],
                             config["to_pad"],
                             blacklist_channels=config["blacklist"])
     crop_input_size = config["crop_input_size"] if "crop_input_size" in config else 100

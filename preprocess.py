@@ -24,7 +24,7 @@ def split_train_val(train_images, val_fraction=0.15):
             val = [actual_train.pop()]  # Move one from train to val
         return actual_train, val
 
-def process_dataset(image_seg_pairs, root_path, quant_path, transposing, crop_input_size, crop_size, kfolds, lr, to_pad, blacklist, marker_path, sample_batch, aug, num_workers, size_data, batch_size, swap_train_val, val_size, max_epochs):
+def process_dataset(image_seg_pairs, root_path, quant_path, transposing, crop_input_size, crop_size, kfolds, lr, to_pad, blacklist, marker_path, sample_batch, aug, num_workers, size_data, batch_size, swap_train_val, val_size, max_epochs, split_test):
     df = pd.read_csv(quant_path)
     label_encoder = LabelEncoder()
     df['cell_type'] = label_encoder.fit_transform(df['cell_type'])
@@ -75,7 +75,7 @@ def process_dataset(image_seg_pairs, root_path, quant_path, transposing, crop_in
         df2 = df[df['sample_id'] == sample_id].copy()
         df2 = df2[['cell_id', 'cell_type']]
         max_ids = segmask.max()
-        labels_array = np.full(max_ids, -1, dtype=int)
+        labels_array = np.full(max_ids + 1, -1, dtype=int)
         for _, row in df2.iterrows():
             cell_id = int(row['cell_id'])
             if 1 <= cell_id <= max_ids: 
@@ -148,6 +148,11 @@ def process_dataset(image_seg_pairs, root_path, quant_path, transposing, crop_in
             "size_data": size_data,
             "batch_size": batch_size
         }
+        if split_test:
+            # Split the test set into two parts for memory reasons
+            test_images_part1, test_images_part2 = train_test_split(test_images, test_size=0.5, random_state=42)
+            config['test_set'] = test_images_part1
+            config['test_set_part2'] = test_images_part2
         config_path = os.path.join(root_path, f'config_fold_{fold_idx}.json')
         with open(config_path, 'w') as f:
             json.dump(config, f, indent=4)
@@ -269,6 +274,11 @@ def main():
         default=50,
         help="Maximum number of epochs for training. Default is 50."
     )
+    parser.add_argument(
+        "--split_test",
+        action='store_true',
+        help="Whether to split the test set into 2 parts and thereby produce 2 config files each carrying only one of the parts for memory reasons."
+    )
     args = parser.parse_args()
 
     image_seg_pairs = []
@@ -312,7 +322,8 @@ def main():
         batch_size=args.batch_size,
         swap_train_val=args.swap_train_val,
         val_size=args.val_size,
-        max_epochs=args.max_epochs
+        max_epochs=args.max_epochs,
+        split_test=args.split_test
     )
 
 if __name__ == "__main__":
