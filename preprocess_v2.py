@@ -155,7 +155,7 @@ def process_dataset(image_seg_pairs, root_path, quant_path, transposing, crop_in
             config['test_set'] = test_image_chunks[0].tolist()
 
             if len(test_image_chunks) > 1:
-                for i, chunk in enumerate(test_image_chunks[1:], start=1):
+                for i, chunk in enumerate(test_image_chunks[1:], start=2):
                     config[f'test_set_part{i}'] = chunk.tolist()
         else:
             config['test_set'] = test_images
