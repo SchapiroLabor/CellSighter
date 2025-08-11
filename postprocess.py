@@ -32,8 +32,8 @@ def process_evals(quant_path, root_path, fold_idx):
     )
     merged.dropna(subset=['predicted_phenotype'], inplace=True)
 
-
-    merged.to_csv(os.path.join(root_path, f"predictions_fold_{fold_idx}.csv"), index=False)
+    os.makedirs(os.path.join(root_path, "level3"), exist_ok=True)
+    merged.to_csv(os.path.join(root_path, f"level3/predictions_fold_{fold_idx}.csv"), index=False)
 
 def main():
     parser = argparse.ArgumentParser(description='Process eval outputs from Cellsighter.')

@@ -21,7 +21,7 @@ def val_epoch(model, dataloader, device=None):
         results = []
         cells = []
         for i, batch in enumerate(dataloader):
-            x = batch['image']
+            x = batch['image'] 
             m = batch.get('mask', None)
             if m is not None:
                 x = torch.cat([x, m], dim=1)
