@@ -77,8 +77,8 @@ def process_dataset(image_seg_pairs, root_path, quant_path, transposing, crop_in
         tiff.imwrite(os.path.join(root_path, 'CellTypes/cells', f'{img_name}.tiff'), segmask)
         df2 = df[df['sample_id'] == sample_id].copy()
         df2 = df2[['cell_id', 'cell_type']]
-        max_ids = segmask.max()
-        labels_array = np.full(int(max_ids), -1, dtype=int)
+        max_ids = int(segmask.max())
+        labels_array = np.full(max_ids, -1, dtype=int)
         for _, row in df2.iterrows():
             cell_id = int(row['cell_id'])
             if 1 <= cell_id <= max_ids+1: 
