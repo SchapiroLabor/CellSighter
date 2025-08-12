@@ -78,11 +78,11 @@ def process_dataset(image_seg_pairs, root_path, quant_path, transposing, crop_in
         df2 = df[df['sample_id'] == sample_id].copy()
         df2 = df2[['cell_id', 'cell_type']]
         max_ids = segmask.max()
-        labels_array = np.full(max_ids + 1, -1, dtype=int)
+        labels_array = np.full(max_ids, -1, dtype=int)
         for _, row in df2.iterrows():
             cell_id = int(row['cell_id'])
             if 1 <= cell_id <= max_ids: 
-                labels_array[cell_id - 1] = row['cell_type']
+                labels_array[cell_id] = row['cell_type']
         np.savez(os.path.join(root_path, 'CellTypes/cells2labels', f'{img_name}.npz'), data=labels_array)
         all_cell_ids = pd.DataFrame({'cell_id': range(1, max_ids + 1)})
         full_mapping = all_cell_ids.merge(df2, on='cell_id', how='left')
