@@ -177,3 +177,88 @@ def process_dataset(image_seg_pairs, root_path, quant_path, transposing, crop_in
         config_path = os.path.join(root_path, f'config_fold_{fold_idx}.json')
         with open(config_path, 'w') as f:
             json.dump(config, f, indent=4)
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Preprocess dataset for Cellsighter.')
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument(
+        "--input_dirs",
+        nargs=2,
+        metavar=("IMAGE_DIR", "SEG_DIR"),
+        help="Paths to the directories for input images and segmentation masks. --input_dirs /path/to/images /path/to/segmentations. Image and segmentation files must have the same name.",
+    )
+    group.add_argument(
+        "--data_paths",
+        type=str,
+        help='Path to a CSV file with "image_path", "mask_path", and "sample_id_col_label" columns.',
+    )
+    parser.add_argument("--root_path", type=str, required=True, help="Root path for saving processed data.")
+    parser.add_argument("--quant_path", type=str, required=True, help="Path to the quantification CSV file.")
+    parser.add_argument("--transposing", action='store_true', help="Transpose images from (C, H, W) to (H, W, C).")
+    parser.add_argument("--crop_input_size", type=int, default=60, help="Size to crop the input images for training.")
+    parser.add_argument("--crop_size", type=int, default=128, help="Cellsighter parameter, approx. double the input crop size.")
+    parser.add_argument("--kfolds", type=int, default=5, help="Number of folds for k-fold cross-validation. Default is 5.")
+    parser.add_argument("--lr", type=float, default=0.001, help="Learning rate for training. Default is 0.001.")
+    parser.add_argument("--to_pad", action='store_true', help="Work on the border of images.")
+    parser.add_argument("--blacklist", type=str, default=None, help="Comma-separated list of markers to exclude, e.g. 'marker1,marker2'.")
+    parser.add_argument("--marker_path", type=str, help="Path to a txt file with channel names.")
+    parser.add_argument("--sample_batch", action='store_false', help="Disable sampling equally from each category per batch.")
+    parser.add_argument("--aug", action='store_true', help="Enable data augmentation during training (default). Use --no-aug to disable.", default=True)
+    parser.add_argument('--no-aug', dest='aug', action='store_false', help="Disable data augmentation during training.")
+    parser.add_argument("--num_workers", type=int, default=2, help="Number of workers for data loading. Default is 2.")
+    parser.add_argument("--size_data", type=int, default=None, help="Subsample to this many cells per cell type.")
+    parser.add_argument("--batch_size", type=int, default=128, help="Batch size for training. Default is 128.")
+    parser.add_argument("--swap_train_val", action='store_true', help="Swap the training and test sets within a fold (for debugging or specific validation strategies).")
+    parser.add_argument("--val_size", type=float, default=0.15, help="Proportion of the training set to be used as validation set. Default is 0.15.")
+    parser.add_argument("--max_epochs", type=int, default=50, help="Maximum number of epochs for training. Default is 50.")
+    parser.add_argument("--split_test", type=int, default=1, help="Split the test set into N parts for memory reasons. Default is 1 (no split).")
+    parser.add_argument("--hierarchy_match", action='store_true', help="Create a hierarchy mapping file for the model.")
+    args = parser.parse_args()
+
+    image_seg_pairs = []
+    if args.input_dirs:
+        image_dir, seg_dir = args.input_dirs
+        for f in sorted(os.listdir(image_dir)):
+            if f.endswith((".tif", ".tiff")):
+                image_path = os.path.join(image_dir, f)
+                seg_path = os.path.join(seg_dir, f)
+                if os.path.exists(seg_path):
+                    image_seg_pairs.append((image_path, seg_path))
+                else:
+                    print(f"Warning: Segmentation file for {f} not found in {seg_dir}. Skipping this image.")
+    elif args.data_paths:
+        try:
+            df_paths = pd.read_csv(args.data_paths)
+            if not all(col in df_paths.columns for col in ["image_path", "mask_path", "sample_id_col_label"]):
+                parser.error("CSV file for --data_paths must contain 'image_path', 'mask_path', and 'sample_id_col_label' columns.")
+            image_seg_pairs = list(zip(df_paths["image_path"], df_paths["mask_path"], df_paths["sample_id_col_label"]))
+        except Exception as e:
+            parser.error(f"Error reading CSV file from --data_paths: {e}")
+    
+    process_dataset(
+        image_seg_pairs=image_seg_pairs,
+        root_path=args.root_path,
+        quant_path=args.quant_path,
+        transposing=args.transposing,
+        crop_input_size=args.crop_input_size,
+        crop_size=args.crop_size,
+        kfolds=args.kfolds,
+        lr=args.lr,
+        to_pad=args.to_pad,
+        blacklist=args.blacklist,
+        marker_path=args.marker_path,
+        sample_batch=args.sample_batch,
+        aug=args.aug,
+        num_workers=args.num_workers,
+        size_data=args.size_data,
+        batch_size=args.batch_size,
+        swap_train_val=args.swap_train_val,
+        val_size=args.val_size,
+        max_epochs=args.max_epochs,
+        split_test=args.split_test,
+        hierarchy_match=args.hierarchy_match
+    )
+
+if __name__ == "__main__":
+    main()
