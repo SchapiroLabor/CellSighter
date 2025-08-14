@@ -109,7 +109,7 @@ if __name__ == "__main__":
         start_time = time.time()
     os.makedirs(os.path.join(args.root_path, 'logs'), exist_ok=True)
     writer = SummaryWriter(log_dir=os.path.join(args.root_path, 'logs', args.fold_id))
-    config_path = os.path.join(args.root_path, f"config_{args.fold_id}.json")
+    config_path = os.path.join(args.root_path, f"config.json")
     with open(config_path) as f:
         config = json.load(f)
     criterion = torch.nn.CrossEntropyLoss()
