@@ -18,7 +18,6 @@ def parse_args():
 
     # Configuration file
     parser.add_argument("--num_folds", type=int, default=5)
-    parser.add_argument("--split", type=float, default=None)
     parser.add_argument("--crop_input_size", type=int, default=60)
     parser.add_argument("--crop_size", type=int, default=128)
     parser.add_argument("--epoch_max", type=int, default=100)
