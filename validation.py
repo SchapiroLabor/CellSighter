@@ -101,7 +101,7 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = Model(num_channels + 1, class_num)
-    weights_path = os.path.join(args.root, "weights", f"{args.fold_id}", "weights.pth")
+    weights_path = os.path.join(args.root, "weights", f"weights_{args.fold_id}.pth")
     model.load_state_dict(torch.load(weights_path))
     model = model.to(device).eval()
 

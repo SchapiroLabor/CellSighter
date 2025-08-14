@@ -192,7 +192,7 @@ if __name__ == "__main__":
         minutes, seconds = divmod(rem, 60)
         formatted_time = f"{days}d:{hours}h:{minutes}m:{seconds}s"
         log_line = f"{args.dataset}, {args.cell_type_col}, {args.fold_id}: {formatted_time}\n"
-        time_log_path = os.path.join(result_path, "time.txt")
-        
+        time_log_path = os.path.join(args.root_path, "logs", f"time_{args.fold_id}.txt")
+
         with open(time_log_path, "a") as f:
             f.write(log_line)
