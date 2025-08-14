@@ -94,9 +94,7 @@ def define_sampler(crops, hierarchy_match=None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train Cell Sighter Model")
-    parser.add_argument('--root_path', type=str, required=True, help='Root path to the datasets')
-    parser.add_argument('--dataset', type=str, required=True, help='Dataset name, e.g. cHL_2_MIBI or IMMUcan')
-    parser.add_argument('--result_path', type=str, required=True, help='Path to save the results')
+    parser.add_argument('--root_path', type=str, required=True, help='Root path to CellSighter adjusted file structure with all necessary data included')
     parser.add_argument('--fold_id', type=str, default='fold_0', help='Fold identifier, e.g. fold_0')
     parser.add_argument('--batch_size', type=int, default=256, help='Batch size for training')
     parser.add_argument('--num_workers', type=int, default=0, help='Number of workers for data loading')
@@ -109,27 +107,19 @@ if __name__ == "__main__":
 
     if args.time:
         start_time = time.time()
-
-    # Construct paths dynamically from dataset name
-    base_path = os.path.join(args.root_path, args.dataset, 'CellTypes')
-    result_path = os.path.join(args.result_path)
-
-    os.makedirs(os.path.join(result_path, args.fold_id), exist_ok=True)
-    os.makedirs(os.path.join(result_path, 'logs', args.fold_id), exist_ok=True)
-    writer = SummaryWriter(log_dir=os.path.join(result_path, 'logs', args.fold_id))
-    config_path = os.path.join(base_path, "config.json")
+    os.makedirs(os.path.join(args.root_path, 'logs'), exist_ok=True)
+    writer = SummaryWriter(log_dir=os.path.join(args.root_path, 'logs', args.fold_id))
+    config_path = os.path.join(args.root_path, f"config_{args.fold_id}.json")
     with open(config_path) as f:
         config = json.load(f)
-    config["train_set"] = config[f"{args.fold_id}_train_set"]
     criterion = torch.nn.CrossEntropyLoss()
     train_crops, _ = load_crops(config["root_dir"],
                                         config["channels_path"],
                                         config["crop_size"],
-                                        config["train_set"],
+                                        config[f"{args.fold_id}_train_set"],
                                         [],
                                         config["to_pad"],
-                                        blacklist_channels=config["blacklist"],
-                                        cell_type_col=args.cell_type_col)
+                                        blacklist_channels=config["blacklist"])
 
     train_crops = np.array([c for c in train_crops if c._label >= 0])
 
@@ -187,7 +177,7 @@ if __name__ == "__main__":
             min_loss = total_loss
             best_epoch_id = i
             print(f"Saving new best model at epoch {i} with valid loss: {total_loss}!")
-            torch.save(model.state_dict(), os.path.join(result_path, args.fold_id, "weights.pth"))
+            torch.save(model.state_dict(), os.path.join(args.root_path, 'weights', f"weights_{args.fold_id}.pth"))
         else:
             patience += 1
             if i > args.epoch_min and patience > args.n_no_change:

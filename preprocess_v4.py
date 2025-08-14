@@ -9,9 +9,9 @@ from sklearn.model_selection import KFold
 
 def parse_args():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--root_path", type=str, required=True)
+    parser.add_argument("--data_dir", type=str, required=True)
     parser.add_argument("--dataset_name", type=str, required=True)
-    parser.add_argument("--data_root", type=str, required=True)
-    parser.add_argument("--working_dir", type=str, required=True)
     parser.add_argument("--cell_type_col", nargs='+', default=[])
     parser.add_argument("--transpose", action="store_true")
     parser.add_argument("--exclude_celltypes", nargs='*', default=[])
@@ -33,7 +33,6 @@ def parse_args():
 def process_images(raw_dir, output_path, transpose):
     sample_ids = []
     sample_ids_clean = []
-    os.makedirs(output_path, exist_ok=True)
 
     for fname in os.listdir(raw_dir):
         if fname.endswith((".tif", ".tiff", ".npz")):
@@ -79,7 +78,7 @@ def process_masks(seg_dir, output_path, sample_ids):
 
     return n_cells_dict
 
-def process_labels(quant_path, label_path, output_path, cell_type_col, exclude_celltypes, n_cells_dict=None):
+def process_labels(quant_path, output_path, cell_type_col, exclude_celltypes, n_cells_dict=None):
     df = pd.read_csv(quant_path)
     df[cell_type_col] = df[cell_type_col].astype(str)
 
@@ -92,7 +91,6 @@ def process_labels(quant_path, label_path, output_path, cell_type_col, exclude_c
     df = df.merge(df_label_map, how="left", left_on=cell_type_col, right_on="phenotype")
     df["label_id"] = df["label"].fillna(-1).astype(int)
 
-    os.makedirs(output_path, exist_ok=True)
     for sample_id, group in df.groupby("sample_id"):
         clean_id = sample_id.rsplit(".", 1)[0]
         group = group.sort_values("cell_id").reset_index(drop=True)
@@ -154,47 +152,50 @@ def write_config(output_path, num_classes, crop_input_size, crop_size, epoch_max
 
 def main():
     args = parse_args()
+    os.makedirs(args.root_path, exist_ok=True)
+    os.makedirs(os.path.join(args.root_path, 'CellTypes/data/images'), exist_ok=True)
+    os.makedirs(os.path.join(args.root_path, 'CellTypes/cells'), exist_ok=True)
+    os.makedirs(os.path.join(args.root_path, 'CellTypes/cells2labels'), exist_ok=True)
+    os.makedirs(os.path.join(args.root_path, 'CellTypes/mappings'), exist_ok=True)
+    os.makedirs(os.path.join(args.root_path, 'weights'), exist_ok=True)
+    image_dir = os.path.join(args.root_path, 'CellTypes/data/images')
+    seg_dir = os.path.join(args.root_path, 'CellTypes/cells')
+    cells2labels_dir = os.path.join(args.root_path, 'CellTypes/cells2labels')
+    mappings_dir = os.path.join(args.root_path, 'CellTypes/mappings')
+    quant_path = os.path.join(args.data_dir, "quantification", "processed", f"{args.dataset_name}_quantification.csv")
+    channel_path = os.path.join(args.data_dir, "markers.txt")
 
-    output_root = os.path.join(args.working_dir, "datasets", args.dataset_name, "CellTypes")
-    raw_dir = os.path.join(args.data_root, "raw_images", "multistack_tiffs")
-    quant_path = os.path.join(args.data_root, "quantification", "processed", f"{args.dataset_name}_quantification.csv")
-    label_path = os.path.join(args.data_root, "quantification", "processed", "labels.csv")
-    seg_dir = os.path.join(args.data_root, "segmentation")
-    channel_path = os.path.join(args.data_root, "markers.txt")
+    # output_root = os.path.join(args.working_dir, "datasets", args.dataset_name, "CellTypes")
+    # raw_dir = os.path.join(args.data_root, "raw_images", "multistack_tiffs")
+    # quant_path = os.path.join(args.data_root, "quantification", "processed", f"{args.dataset_name}_quantification.csv")
+    # label_path = os.path.join(args.data_root, "quantification", "processed", "labels.csv")
+    # seg_dir = os.path.join(args.data_root, "segmentation")
+    # channel_path = os.path.join(args.data_root, "markers.txt")
 
-    sample_ids = process_images(raw_dir, os.path.join(output_root, "data", "images"), args.transpose)
-    n_cells_dict = process_masks(seg_dir, os.path.join(output_root, "cells"), sample_ids)
+    sample_ids = process_images(os.path.join(args.data_dir, "raw_images", "multistack_tiffs"), image_dir, args.transpose)
+    n_cells_dict = process_masks(os.path.join(args.data_dir, "segmentation"), seg_dir, sample_ids)
 
     for cell_type_col in args.cell_type_col:
         df_label_map = process_labels(
             quant_path,
-            label_path,
-            os.path.join(output_root, "cells2labels", cell_type_col),
+            cells2labels_dir,
             cell_type_col,
             args.exclude_celltypes,
             n_cells_dict
         )
-        label_out = os.path.join(output_root, "..", f"labels_{cell_type_col}.csv")
+        label_out = os.path.join(mappings_dir, f"labels_{cell_type_col}.csv")
         if not os.path.exists(label_out):
             df_label_map.to_csv(label_out, index=False)
 
-    channel_out = os.path.join(output_root, "..", "channels.txt")
-    if not os.path.exists(channel_out):
-        shutil.copyfile(channel_path, channel_out)
-
-    if args.split:
-        folds = create_kfold_splits(sample_ids, args.num_folds)
-        with open(os.path.join(output_root, "..", "folds.json"), "w") as f:
-            json.dump(folds, f, indent=4)
-        print("Folds saved")
-    else:
-        with open(args.folds_json, "r") as f:
-            folds = json.load(f)
+    folds = create_kfold_splits(sample_ids, args.num_folds)
+    with open(os.path.join(args.root_path, "CellTypes", "folds.json"), "w") as f:
+        json.dump(folds, f, indent=4)
+    print("Folds saved")
 
     num_classes = df_label_map["label"].max() + 1
-    write_config(os.path.join(output_root, ".."), num_classes, args.crop_input_size, args.crop_size,
+    write_config(args.root_path, num_classes, args.crop_input_size, args.crop_size,
                  args.epoch_max, args.lr, args.sample_batch, args.to_pad, args.aug_data,
-                 channel_out, folds)
+                 channel_path, folds)
 
 if __name__ == "__main__":
     main()
