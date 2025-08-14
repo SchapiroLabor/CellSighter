@@ -25,7 +25,6 @@ def parse_args():
     parser.add_argument("--sample_batch", action="store_true")
     parser.add_argument("--to_pad", action="store_true")
     parser.add_argument("--aug_data", action="store_true")
-    parser.add_argument("--folds_json", type=str, default="")
 
     return parser.parse_args()
 
