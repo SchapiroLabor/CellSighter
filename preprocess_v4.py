@@ -106,12 +106,12 @@ def process_labels(quant_path, output_path, cell_type_col, exclude_celltypes, n_
 
     return df_label_map
 
-def create_kfold_splits(sample_ids, num_folds):
+def create_kfold_splits(sample_ids, num_folds, swap_train_test):
     kf = KFold(n_splits=num_folds, shuffle=True, random_state=42)
     folds = {}
     sample_ids_sorted = sorted(sample_ids)
     for i, (train_idx, test_idx) in enumerate(kf.split(sample_ids_sorted)):
-        if args.swap_train_test:
+        if swap_train_test:
             folds[f"fold_{i}_train_set"] = [sample_ids_sorted[j] for j in test_idx]
             folds[f"fold_{i}_test_set"] = [sample_ids_sorted[j] for j in train_idx]
         else:
@@ -190,7 +190,7 @@ def main():
         if not os.path.exists(label_out):
             df_label_map.to_csv(label_out, index=False)
 
-    folds = create_kfold_splits(sample_ids, args.num_folds)
+    folds = create_kfold_splits(sample_ids, args.num_folds, args.swap_train_test)
     with open(os.path.join(args.root_path, "CellTypes", "folds.json"), "w") as f:
         json.dump(folds, f, indent=4)
     print("Folds saved")
