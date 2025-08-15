@@ -111,7 +111,7 @@ if __name__ == "__main__":
         config["channels_path"],
         config["crop_size"],
         [],
-        config[args.test_set],
+        config[f'{args.fold_id}_{args.test_set}'],
         config["to_pad"],
         blacklist_channels=config["blacklist"],
     )
