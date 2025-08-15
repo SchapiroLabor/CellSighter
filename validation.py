@@ -124,14 +124,12 @@ if __name__ == "__main__":
     results_df = results_df.rename(columns={"image_id": "sample_id"})
 
     # Load the label mapping
-    with open(os.path.join(args.root, "label_mapping.json")) as f:
-        mapping = json.load(f)
-    inv_mapping = {v: k for k, v in mapping.items()}
+    labels_df = pd.read_csv(os.path.join(args.root,'CellTypes','mappings', f"labels_{args.cell_type_col}.csv"))
+    label_map = dict(zip(labels_df['label'], labels_df['phenotype']))
+    results_df["true_phenotypes"] = results_df["true_labels"].map(label_map)
+    results_df["predicted_phenotypes"] = results_df["predicted_labels"].map(label_map)
 
 
-    # Map integer labels to names
-    results_df["true_phenotypes"] = results_df["true_labels"].map(inv_mapping)
-    results_df["predicted_phenotypes"] = results_df["predicted_labels"].map(inv_mapping)
 
     # Save the updated results
 
