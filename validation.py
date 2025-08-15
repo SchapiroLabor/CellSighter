@@ -92,7 +92,7 @@ if __name__ == "__main__":
     writer = SummaryWriter(log_dir=os.path.join(args.root, "logs", args.fold_id))
 
     # Load config
-    config_path = os.path.join(args.root, f"config_{args.fold_id}.json")
+    config_path = os.path.join(args.root, f"config.json")
     with open(config_path) as f:
         config = json.load(f)
 
