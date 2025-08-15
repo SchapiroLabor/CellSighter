@@ -83,6 +83,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Validation')
     parser.add_argument('--root', type=str, required=True, help='Root directory of the dataset result folder for cellsighter')
     parser.add_argument('--fold_id', type=str, default='fold_0')
+    parser.add_argument('--cell_type_col', type=str, default='cell_type', help='Column name for cell types in the dataset')
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--num_workers', type=int, default=6)
     parser.add_argument('--test_set', type=str, default='test_set', help='test set from config file')
