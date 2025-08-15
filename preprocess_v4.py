@@ -18,6 +18,7 @@ def parse_args():
 
     # Configuration file
     parser.add_argument("--num_folds", type=int, default=5)
+    parser.add_argument("--swap_train_test", action="store_true")
     parser.add_argument("--crop_input_size", type=int, default=60)
     parser.add_argument("--crop_size", type=int, default=128)
     parser.add_argument("--epoch_max", type=int, default=100)
@@ -110,8 +111,12 @@ def create_kfold_splits(sample_ids, num_folds):
     folds = {}
     sample_ids_sorted = sorted(sample_ids)
     for i, (train_idx, test_idx) in enumerate(kf.split(sample_ids_sorted)):
-        folds[f"fold_{i}_train_set"] = [sample_ids_sorted[j] for j in train_idx]
-        folds[f"fold_{i}_test_set"] = [sample_ids_sorted[j] for j in test_idx]
+        if args.swap_train_test:
+            folds[f"fold_{i}_train_set"] = [sample_ids_sorted[j] for j in test_idx]
+            folds[f"fold_{i}_test_set"] = [sample_ids_sorted[j] for j in train_idx]
+        else:
+            folds[f"fold_{i}_train_set"] = [sample_ids_sorted[j] for j in train_idx]
+            folds[f"fold_{i}_test_set"] = [sample_ids_sorted[j] for j in test_idx]
     return folds
 
 def convert_numpy(obj):
